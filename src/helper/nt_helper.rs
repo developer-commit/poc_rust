@@ -22,34 +22,47 @@ pub enum NtHelperError {
     Io(#[from] std::io::Error),
 }
 
-
+//"repeat_nt_system_big_pool_infomation_helper_error".to_string()
 pub fn nt_system_big_pool_infomation_helper() -> Result<Vec<u32>, NtHelperError>{
+    return nt_query_system_information(
+        SystemInformationClass::SystemBigPoolInformation, 
+        "repeat_nt_system_big_pool_infomation_helper_error".to_string()
+    );
+}
+
+pub fn nt_system_extended_handle_information() -> Result<Vec<u32>, NtHelperError> {
+    return nt_query_system_information(
+        SystemInformationClass::SystemExtendedHandleInformation, 
+        "repeat_nt_system_extended_handle_information_error".to_string()
+    );
+}
+
+pub fn nt_query_system_information(info_class: SystemInformationClass, err_msg: String) -> Result<Vec<u32>, NtHelperError> {
     let mut buffer_size: u32 = 0;
-    let mut bigpool_buffer:Vec<u32> = Vec::new();
+    let mut info_buffer:Vec<u32> = Vec::new();
 
-    bigpool_buffer.resize(10, 0);
-
+    info_buffer.resize(0x100, 0);
     let break_cnt = 0;
-    
+
     loop{
         if break_cnt >= 100 {
-            return Err(NtHelperError::RepeatError("repeat_nt_system_big_pool_infomation_helper_error".to_string()))
+            return Err(NtHelperError::RepeatError(err_msg))
         }
 
         let status: NTSTATUS = unsafe {
                 NtQuerySystemInformation(
-                SystemInformationClass::SystemBigPoolInformation,
-                bigpool_buffer.as_mut_ptr().cast::<c_void>(),
+                info_class,
+                info_buffer.as_mut_ptr().cast::<c_void>(),
                 buffer_size,
                 &mut buffer_size,
             )
         };
         if status == STATUS_INFO_LENGTH_MISMATCH {
-            bigpool_buffer.resize((buffer_size + 1) as usize, 0);
+            info_buffer.resize((buffer_size + 1) as usize, 0);
             continue;
         }
         break;
     }
 
-    Ok(bigpool_buffer)
+    Ok(info_buffer)
 }

@@ -216,30 +216,9 @@ fn get_object_kernel_address(object: HANDLE) -> Option<usize> {
         unsafe { GetCurrentProcessId() as usize }
     };
 
-    let mut buffer_size = 0x1000usize;
+    let buffer = nt_helper::nt_system_extended_handle_information().expect("get_object_kernel_address->nt_system_extended_handle_information err");
 
     loop {
-        let mut buffer = vec![0u8; buffer_size];
-        let mut return_length = 0u32;
-
-        let status = unsafe {
-            NtQuerySystemInformation(
-                SystemInformationClass::SystemExtendedHandleInformation,
-                buffer.as_mut_ptr().cast(),
-                buffer.len() as u32,
-                &mut return_length,
-            )
-        };
-
-        if status == STATUS_INFO_LENGTH_MISMATCH {
-            buffer_size = return_length as usize + 0x100;
-            continue;
-        }
-
-        if !nt_helper::nt_success(status) {
-            return None;
-        }
-
         let info =
             unsafe { &*(buffer.as_ptr() as *const SystemHandleInformationEx) };
 
@@ -320,8 +299,6 @@ fn check_access_token(pt: &mut ProcessTable) {
     }
 
     let mut buffer_size = 0x1000usize;
-
-    
 
     let buffer = loop {
         let word_count =
