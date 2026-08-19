@@ -31,3 +31,5 @@
 # Temporary files
 *.tmp
 *.temp
+
+*.cpp

