@@ -22,22 +22,14 @@ pub enum NtHelperError {
     Io(#[from] std::io::Error),
 }
 
-//"repeat_nt_system_big_pool_infomation_helper_error".to_string()
-pub fn nt_system_big_pool_infomation_helper() -> Result<Vec<u32>, NtHelperError>{
-    return nt_query_system_information(
-        SystemInformationClass::SystemBigPoolInformation, 
-        "repeat_nt_system_big_pool_infomation_helper_error".to_string()
-    );
-}
-
 pub fn nt_system_extended_handle_information() -> Result<Vec<u32>, NtHelperError> {
-    return nt_query_system_information(
-        SystemInformationClass::SystemExtendedHandleInformation, 
-        "repeat_nt_system_extended_handle_information_error".to_string()
-    );
+    
 }
 
-pub fn nt_query_system_information(info_class: SystemInformationClass, err_msg: String) -> Result<Vec<u32>, NtHelperError> {
+pub fn nt_system_big_pool_infomation_helper() -> Result<Vec<u32>, NtHelperError> {
+    let info_class =  SystemInformationClass::SystemBigPoolInformation;
+    let err_str = "repeat_nt_system_big_pool_infomation_helper_error".to_string();
+
     let mut buffer_size: u32 = 0;
     let mut info_buffer:Vec<u32> = Vec::new();
 
