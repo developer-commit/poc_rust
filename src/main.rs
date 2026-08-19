@@ -1124,7 +1124,7 @@ struct KernelGadget {
 
 impl KernelGadget {
     fn new(path: &str, name: &[u8]) -> Option<Self> {
-        let wide_path = wide(path);
+        let wide_path = str_helper::wide(path);
 
         let user_base = unsafe {
             LoadLibraryExW(
