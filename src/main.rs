@@ -794,7 +794,6 @@ fn pipe_arbitrary_write_values(h_pipe: &mut Pipeline, system_eprocess: usize){
 
         if entry.tag() == b"NpAt" {
             pipe_attribute_base = entry.virtual_address();
-            //정상적으로 잡는거 확인함
             println!(
                 "AttributeValue field (+0x20): {:#018x}",
                 pipe_attribute_base + 0x20
