@@ -58,7 +58,7 @@ pub fn nt_query_system_information(info_class: SystemInformationClass, err_msg: 
             )
         };
         if status == STATUS_INFO_LENGTH_MISMATCH {
-            info_buffer.resize((buffer_size + 1) as usize, 0);
+            info_buffer.resize((buffer_size + 0x100) as usize, 0);
             continue;
         }
         break;
