@@ -321,6 +321,8 @@ fn check_access_token(pt: &mut ProcessTable) {
 
     let mut buffer_size = 0x1000usize;
 
+    
+
     let buffer = loop {
         let word_count =
             (buffer_size + size_of::<usize>() - 1)
@@ -1083,7 +1085,6 @@ struct Pipeline {
     read_pipe: HANDLE,
     write_pipe: HANDLE
 }
-
 
 pub struct ExploitGadgets {
     clfs_earlier_lsn: KernelGadget,
