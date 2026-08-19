@@ -30,4 +30,6 @@ windows-sys = { version = "0.61", features = [
 
     # FILE_INFORMATION_CLASS 및 파일 관련 상수/타입
     "Win32_Storage_FileSystem",
+
+    "Wdk_Storage_FileSystem",
 ] }
