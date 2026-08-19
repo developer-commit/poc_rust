@@ -1,0 +1,33 @@
+# Rust build artifacts
+/target/
+
+# Rust backup files
+**/*.rs.bk
+
+# Cargo lock file
+# 애플리케이션 프로젝트라면 Cargo.lock을 커밋하는 게 일반적입니다.
+# 라이브러리이고 정책상 제외하려면 아래 주석 해제
+# Cargo.lock
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp

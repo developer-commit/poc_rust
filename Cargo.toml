@@ -1,0 +1,35 @@
+[package]
+name = "poc-2022-37969"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+
+    # Registry
+    "Win32_System_Registry",
+
+    # VirtualAlloc / VirtualFree / HeapAlloc / LocalAlloc 등
+    "Win32_System_Memory",
+
+    # GetCurrentProcessId / OpenProcess / DuplicateHandle 등
+    "Win32_System_Threading",
+
+    # OpenProcessToken / TOKEN_* / access rights
+    "Win32_Security",
+
+    # LoadLibraryW/A / LoadLibraryExW / GetProcAddress / GetModuleHandleA
+    "Win32_System_LibraryLoader",
+
+    # CreatePipe
+    "Win32_System_Pipes",
+
+    # IO_STATUS_BLOCK 등 일부 I/O 관련 타입
+    "Win32_System_IO",
+
+    # FILE_INFORMATION_CLASS 및 파일 관련 상수/타입
+    "Win32_Storage_FileSystem",
+
+    "Wdk_Storage_FileSystem",
+] }
