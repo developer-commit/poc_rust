@@ -1,5 +1,5 @@
 [package]
-name = "poc-2022-37969"
+name = "poc_rust"
 version = "0.1.0"
 edition = "2024"
 
