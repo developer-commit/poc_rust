@@ -26,6 +26,7 @@ use windows_sys::Win32::System::Threading::{
 use windows_sys::Win32::Foundation::{
     CloseHandle, DUPLICATE_SAME_ACCESS, DuplicateHandle, ERROR_NO_TOKEN, ERROR_SUCCESS, GENERIC_ALL, GENERIC_READ, GENERIC_WRITE, GetLastError, HANDLE, INVALID_HANDLE_VALUE, NTSTATUS, STATUS_INFO_LENGTH_MISMATCH
 };
+
 use windows_sys::Win32::System::Registry::{
     RegCloseKey,
     RegOpenKeyExW,
@@ -38,19 +39,36 @@ use windows_sys::Win32::System::Registry::{
 
 use std::mem::offset_of;
 
-#[repr(C)]
-struct ListEntry {
-    flink: *mut c_void,
-    blink: *mut c_void,
-}
+/*
+문제의 부분?
+*/
+mod ntdll;
 
-#[repr(C)]
-struct PipeAttribute {
-    list: ListEntry,                  // +0x00
-    attribute_name: *mut c_void,      // +0x10
-    attribute_value_size: u64,        // +0x18
-    attribute_value: *mut c_void,     // +0x20
-}
+use ntdll::system_infomation::{
+    big_pool::{
+        SystemBigPoolEntry,
+        SystemBigPoolInformation
+    },
+    class::SystemInformationClass,
+    system_handle::{
+        SystemHandleInformation,
+        SystemHandleTableEntryInfo,
+        SystemHandleInformationEx,
+        SystemHandleTableEntryInfoEx
+    },
+    rtl_process::{
+        RtlProcessModuleInformation,
+        RtlProcessModules
+    },
+};
+
+use ntdll::extern_raw::{
+    NtFsControlFile,
+    NtSetInformationFile,
+    NtQuerySystemInformation
+};
+
+use ntdll::pipeline::{PipeAttribute, ListEntry};
 
 
 fn append(base: &OsStr, suffix: &str) -> OsString {
@@ -69,150 +87,6 @@ fn osstr_wide(s: &OsStr) -> Vec<u16> {
     s.encode_wide()
         .chain(std::iter::once(0))
         .collect()
-}
-
-//nt 함수
-#[link(name = "ntdll")]
-unsafe extern "system" {
-    fn NtQuerySystemInformation(
-        system_information_class: SystemInformationClass,
-        system_information: *mut c_void,
-        system_information_length: u32,
-        return_length: *mut u32,
-    ) -> NTSTATUS;
-}
-
-#[link(name = "ntdll")]
-unsafe extern "system" {
-    fn NtSetInformationFile(
-        file_handle: HANDLE,
-        io_status_block: *mut IO_STATUS_BLOCK,
-        file_information: *const c_void,
-        length: u32,
-        file_information_class: FILE_INFORMATION_CLASS,
-    ) -> NTSTATUS;
-}
-
-#[link(name = "ntdll")]
-unsafe extern "system" {
-    fn NtFsControlFile(
-        file_handle: HANDLE,
-        event: HANDLE,
-        apc_routine: *mut c_void,
-        apc_context: *mut c_void,
-        io_status_block: *mut IO_STATUS_BLOCK,
-        fs_control_code: u32,
-        input_buffer: *mut c_void,
-        input_buffer_length: u32,
-        output_buffer: *mut c_void,
-        output_buffer_length: u32,
-    ) -> NTSTATUS;
-}
-
-#[repr(i32)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SystemInformationClass {
-    SystemModuleInformation = 11,
-    SystemHandleInformation = 16,
-    SystemExtendedHandleInformation = 64,
-    SystemBigPoolInformation = 66,
-}
-
-//계산 방지용
-#[repr(C)]
-#[derive(Clone, Copy, Debug)]
-struct SystemBigPoolEntry {
-    // 최하위 1bit는 NonPaged 여부로 사용됨
-    virtual_address_and_flags: usize,
-    size_in_bytes: usize,
-    tag: [u8; 4],
-}
-
-impl SystemBigPoolEntry {
-    fn virtual_address(&self) -> usize {
-        self.virtual_address_and_flags & !1usize
-    }
-    fn is_non_paged(&self) -> bool {
-        self.virtual_address_and_flags & 1 != 0
-    }
-    fn tag(&self) -> &[u8; 4] {
-        &self.tag
-    }
-}
-
-#[repr(C)]
-struct SystemBigPoolInformation {
-    count: u32,
-    entries: [SystemBigPoolEntry; 0],
-}
-
-//계산 방지용
-#[repr(C)]
-#[derive(Clone, Copy)]
-struct SystemHandleTableEntryInfoEx {
-    object: *mut c_void,
-    unique_process_id: usize,
-    handle_value: usize,
-    granted_access: u32,
-    creator_back_trace_index: u16,
-    object_type_index: u16,
-    handle_attributes: u32,
-    reserved: u32,
-}
-
-#[repr(C)]
-struct SystemHandleInformationEx {
-    number_of_handles: usize,
-    reserved: usize,
-    handles: [SystemHandleTableEntryInfoEx; 0],
-}
-
-//계산 방지용
-#[repr(C)]
-#[derive(Clone, Copy, Debug)]
-struct SystemHandleTableEntryInfo {
-    unique_process_id: u16,
-    creator_back_trace_index: u16,
-    object_type_index: u8,
-    handle_attributes: u8,
-    handle_value: u16,
-    object: *mut c_void,
-    granted_access: u32,
-}
-
-#[repr(C)]
-struct SystemHandleInformation {
-    number_of_handles: u32,
-
-    // 실제로는 number_of_handles개가 뒤에 연속해서 존재
-    handles: [SystemHandleTableEntryInfo; 0],
-}
-
-//오프셋 계산 방지
-#[repr(C)]
-#[derive(Clone, Copy, Debug)]
-struct RtlProcessModuleInformation {
-    section: *mut c_void,
-    mapped_base: *mut c_void,
-    image_base: *mut c_void,
-
-    image_size: u32,
-    flags: u32,
-
-    load_order_index: u16,
-    init_order_index: u16,
-    load_count: u16,
-    offset_to_file_name: u16,
-
-    full_path_name: [u8; 256],
-}
-
-#[repr(C)]
-struct RtlProcessModules {
-    number_of_modules: u32,
-
-    // 실제로는 number_of_modules개가 연속해서 존재
-    modules: [RtlProcessModuleInformation; 0],
 }
 
 fn nt_success(status: NTSTATUS) -> bool {
