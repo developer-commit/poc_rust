@@ -1,5 +1,9 @@
-mod poc_2022_37969;
+mod poc;
+
+mod ntdll;
+mod helper;
+mod exploit;
 
 fn main() {
-    poc_2022_37969::run_poc();
+    poc::poc_2022_37969::run_poc();
 }

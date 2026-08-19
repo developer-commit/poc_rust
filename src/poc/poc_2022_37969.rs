@@ -39,17 +39,15 @@ use windows_sys::Win32::System::Registry::{
 
 use std::mem::offset_of;
 
-mod ntdll;
-mod helper;
-mod exploit;
 
-use exploit::kernel_gadget::{
+
+use crate::exploit::kernel_gadget::{
     KernelGadget,
     KernelWriteSource,
 };
 
 
-use ntdll::system_infomation::{
+use crate::ntdll::system_infomation::{
     big_pool::{
         SystemBigPoolEntry,
         SystemBigPoolInformation
@@ -67,14 +65,14 @@ use ntdll::system_infomation::{
     },
 };
 
-use ntdll::extern_raw::{
+use crate::ntdll::extern_raw::{
     NtFsControlFile,
     NtSetInformationFile,
     NtQuerySystemInformation
 };
 
-use ntdll::pipeline::{PipeAttribute, ListEntry};
-use helper::{str_helper, nt_helper};
+use crate::ntdll::pipeline::{PipeAttribute, ListEntry};
+use crate::helper::{str_helper, nt_helper};
 
 #[derive(Debug)]
 struct LogPaths {
