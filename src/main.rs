@@ -218,6 +218,8 @@ fn get_object_kernel_address(object: HANDLE) -> Option<usize> {
 
     let mut buffer_size = 0x1000usize;
 
+    let buffer = nt_helper::nt_system_extended_handle_information().expect("get_object_kernel_address->nt_system_extended_handle_information err");
+
     loop {
         let mut buffer = vec![0u8; buffer_size];
         let mut return_length = 0u32;
