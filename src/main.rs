@@ -220,10 +220,7 @@ fn get_object_kernel_address(object: HANDLE) -> Option<usize> {
     let mut buffer: Vec<u8> = Vec::new();
     buffer.resize(0x1000, 0);
     let mut return_length = 0u32;
-
     loop {
-        // let mut buffer = vec![0u8; buffer_size];
-        
         let status = unsafe {
             NtQuerySystemInformation(
                 SystemInformationClass::SystemExtendedHandleInformation,
@@ -242,28 +239,29 @@ fn get_object_kernel_address(object: HANDLE) -> Option<usize> {
             return None;
         }
 
-        let info =
+        break;
+    }
+
+    let info =
             unsafe { &*(buffer.as_ptr() as *const SystemHandleInformationEx) };
 
-        let entries = unsafe {
-            buffer
-                .as_ptr()
-                .add(size_of::<SystemHandleInformationEx>())
-                as *const SystemHandleTableEntryInfoEx
-        };
+    let entries = unsafe {
+        buffer
+            .as_ptr()
+            .add(size_of::<SystemHandleInformationEx>())
+            as *const SystemHandleTableEntryInfoEx
+    };
 
-        for i in 0..info.number_of_handles {
-            let entry = unsafe { &*entries.add(i) };
+    for i in 0..info.number_of_handles {
+        let entry = unsafe { &*entries.add(i) };
 
-            if entry.unique_process_id == target_pid
-                && entry.handle_value == object_value
-            {
-                return Some(entry.object as usize);
-            }
+        if entry.unique_process_id == target_pid
+            && entry.handle_value == object_value
+        {
+            return Some(entry.object as usize);
         }
-
-        return None;
     }
+    return None;
 }
 
 
