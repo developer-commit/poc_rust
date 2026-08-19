@@ -2,7 +2,7 @@ use std::ffi::c_void;
 
 use windows_sys::Win32::Foundation::{NTSTATUS, STATUS_INFO_LENGTH_MISMATCH};
 
-use crate::ntdll::{extern_raw::NtQuerySystemInformation, system_infomation::class::SystemInformationClass};
+use crate::{helper::nt_helper, ntdll::{extern_raw::NtQuerySystemInformation, system_infomation::class::SystemInformationClass}};
 
 pub fn nt_success(status: NTSTATUS) -> bool {
     status >= 0
@@ -22,9 +22,37 @@ pub enum NtHelperError {
     Io(#[from] std::io::Error),
 }
 
-// pub fn nt_system_extended_handle_information() -> Result<Vec<u32>, NtHelperError> {
+pub fn nt_system_extended_handle_information() -> Result<Vec<u8>, NtHelperError> {
+    let info_class =  SystemInformationClass::SystemExtendedHandleInformation;
+    let err_msg = "repeat_nt_system_big_pool_infomation_helper_error".to_string();
 
-// }
+    let mut buffer: Vec<u8> = Vec::new();
+    buffer.resize(0x1000, 0);
+    let mut return_length = 0u32;
+    loop {
+        let status = unsafe {
+            NtQuerySystemInformation(
+                info_class,
+                buffer.as_mut_ptr().cast(),
+                buffer.len() as u32,
+                &mut return_length,
+            )
+        };
+
+        if status == STATUS_INFO_LENGTH_MISMATCH {
+            buffer.resize(return_length as usize, 0);
+            continue;
+        }
+
+        if !nt_helper::nt_success(status) {
+            return Err(NtHelperError::RepeatError(err_msg))
+            
+        }
+
+        break;
+    }
+    return Ok(buffer)
+}
 
 pub fn nt_system_big_pool_infomation_helper() -> Result<Vec<u32>, NtHelperError> {
     let info_class =  SystemInformationClass::SystemBigPoolInformation;

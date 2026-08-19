@@ -217,30 +217,7 @@ fn get_object_kernel_address(object: HANDLE) -> Option<usize> {
     };
 
     
-    let mut buffer: Vec<u8> = Vec::new();
-    buffer.resize(0x1000, 0);
-    let mut return_length = 0u32;
-    loop {
-        let status = unsafe {
-            NtQuerySystemInformation(
-                SystemInformationClass::SystemExtendedHandleInformation,
-                buffer.as_mut_ptr().cast(),
-                buffer.len() as u32,
-                &mut return_length,
-            )
-        };
-
-        if status == STATUS_INFO_LENGTH_MISMATCH {
-            buffer.resize(return_length as usize, 0);
-            continue;
-        }
-
-        if !nt_helper::nt_success(status) {
-            return None;
-        }
-
-        break;
-    }
+    let buffer: Vec<u8> = nt_helper::nt_system_extended_handle_information().expect("sys_extend err");
 
     let info =
             unsafe { &*(buffer.as_ptr() as *const SystemHandleInformationEx) };
